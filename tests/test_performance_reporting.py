@@ -116,6 +116,8 @@ def test_low_resource_daily_push_script_has_guards_and_expected_schedule_command
     assert "performance_report.py --period daily" in content
     assert "git push \"$REMOTE\" HEAD:\"$BRANCH\"" in content
     assert "WEATHERBOT_GIT_REMOTE:-origin" in content
+    assert "git checkout \"$BRANCH\"" in content
+    assert "git merge --ff-only \"$REMOTE/$BRANCH\"" in content
     assert "5 0 * * *" in content
 
 
