@@ -26,6 +26,15 @@ if ! flock -n 9; then
   exit 0
 fi
 
+if ! git diff --quiet || ! git diff --cached --quiet; then
+  echo "Working tree has uncommitted tracked changes; refusing to run daily report push."
+  exit 1
+fi
+
+git fetch "$REMOTE" "$BRANCH"
+git checkout "$BRANCH"
+git merge --ff-only "$REMOTE/$BRANCH"
+
 report_path=$(nice -n 10 ionice -c2 -n7 python scripts/performance_report.py \
   --period daily \
   --ledger "$LEDGER" \
