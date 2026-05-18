@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Cron schedule: 5 0 * * * /home/cptre/weatherbot-prod/scripts/daily_report_push.sh
 # Generates the previous UTC day's paper-performance report at 00:05 UTC and pushes it to GitHub.
-# Core commands: performance_report.py --period daily ; git push fork HEAD:prod-safety-refactor
+# If the scheduler runs in SAST/local time, use 5 2 * * * to equal 00:05 UTC.
+# Core commands: performance_report.py --period daily ; git push origin HEAD:prod-safety-refactor
 
 set -euo pipefail
 
@@ -14,7 +15,7 @@ export PYTHONUNBUFFERED=1
 ROOT_DIR="${WEATHERBOT_ROOT:-/home/cptre/weatherbot-prod}"
 LEDGER="${WEATHERBOT_LEDGER:-data/paper_trades.jsonl}"
 OUTPUT_DIR="${WEATHERBOT_REPORT_DIR:-reports/performance}"
-REMOTE="${WEATHERBOT_GIT_REMOTE:-fork}"
+REMOTE="${WEATHERBOT_GIT_REMOTE:-origin}"
 BRANCH="${WEATHERBOT_GIT_BRANCH:-prod-safety-refactor}"
 LOCK_FILE="${WEATHERBOT_LOCK_FILE:-/tmp/weatherbot-daily-report.lock}"
 

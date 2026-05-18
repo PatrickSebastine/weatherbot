@@ -114,8 +114,19 @@ def test_low_resource_daily_push_script_has_guards_and_expected_schedule_command
     assert "ionice -c2 -n7" in content
     assert "OPENBLAS_NUM_THREADS=1" in content
     assert "performance_report.py --period daily" in content
-    assert "git push fork" in content
+    assert "git push \"$REMOTE\" HEAD:\"$BRANCH\"" in content
+    assert "WEATHERBOT_GIT_REMOTE:-origin" in content
     assert "5 0 * * *" in content
+
+
+def test_daily_report_push_cron_wrapper_matches_scheduler_script_name():
+    wrapper = ROOT / "scripts" / "weatherbot_daily_report_push.sh"
+    content = wrapper.read_text(encoding="utf-8")
+
+    assert wrapper.exists()
+    assert wrapper.stat().st_mode & stat.S_IXUSR
+    subprocess.run(["bash", "-n", str(wrapper)], check=True)
+    assert "daily_report_push.sh" in content
 
 
 def test_reporting_docs_define_daily_weekly_monthly_templates_and_utc_push_policy():
@@ -127,4 +138,4 @@ def test_reporting_docs_define_daily_weekly_monthly_templates_and_utc_push_polic
     assert "Weekly" in content
     assert "Monthly" in content
     assert "low resource" in content.lower()
-    assert "git push fork" in content
+    assert "git push origin" in content

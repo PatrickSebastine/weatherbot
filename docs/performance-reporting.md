@@ -9,11 +9,13 @@ Weatherbot uses standard Markdown reports for **Daily**, **Weekly**, and **Month
 - Example: the 17 May 2026 daily report is generated and pushed at 00:05 UTC on 18 May 2026.
 - Cron expression: `5 0 * * * /home/cptre/weatherbot-prod/scripts/daily_report_push.sh`.
 
-The push target is Patrick's GitHub fork:
+The push target is Patrick's standalone GitHub repo:
 
 ```bash
-git push fork HEAD:prod-safety-refactor
+git push origin HEAD:prod-safety-refactor
 ```
+
+If the scheduler uses local SAST time instead of UTC, schedule `5 2 * * *` so the job runs at **00:05 UTC**.
 
 ## Low resource execution
 
