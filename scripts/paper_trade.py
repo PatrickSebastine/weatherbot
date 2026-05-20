@@ -9,6 +9,7 @@ import hashlib
 import json
 from pathlib import Path
 import sys
+from typing import Any
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 if str(ROOT_DIR) not in sys.path:
@@ -66,48 +67,54 @@ def run_demo_paper_trade(
     kelly_fraction_cap: float,
     kill_switch_path: Path,
 ) -> PaperScanResult:
-    station = get_city_station("nyc")
     fetched_at = datetime.now(timezone.utc).isoformat()
     event_date = "2026-06-01"
-    gamma_event = {
-        "id": "demo-event-1",
-        "slug": "highest-temperature-in-nyc-on-june-1-2026",
-        "title": "Highest temperature in New York City on June 1, 2026?",
-        "markets": [
-            {
-                "id": "demo-m-68-76",
-                "slug": "demo-nyc-68-76",
-                "question": "Will the highest temperature in New York City be between 68-76°F on June 1?",
-                "outcomes": '["Yes", "No"]',
-                "outcomePrices": '["0.44", "0.56"]',
-                "clobTokenIds": '["yes-token", "no-token"]',
-                "conditionId": "demo-condition",
-                "volume": "500",
-                "liquidity": "250",
-                "active": True,
-                "closed": False,
-            }
-        ],
-    }
-    parsed_markets = parse_gamma_event_markets(
-        gamma_event,
-        books_by_yes_token={"yes-token": {"bids": [{"price": "0.43", "size": "100"}], "asks": [{"price": "0.44", "size": "80"}]}},
-        min_liquidity_usd=cfg.trading.min_liquidity_usd,
-    )
-    forecasts = [
-        ForecastSnapshot(
-            city_slug=station.slug,
-            city_name=station.name,
-            station=station.station,
-            source="ecmwf",
-            forecast_date=event_date,
-            fetched_at=fetched_at,
-            high_temperature=72.0,
-            unit=station.temperature_unit,
-            horizon_days=1.0,
-            metadata={"provider": "demo"},
+    parsed_markets = []
+    forecasts = []
+    for index, spec in enumerate(_demo_event_specs(), start=1):
+        station = get_city_station(str(spec["city_slug"]))
+        yes_token = f"yes-token-{station.slug}"
+        gamma_event = {
+            "id": f"demo-event-{index}",
+            "slug": f"highest-temperature-in-{station.slug}-on-june-1-2026",
+            "title": f"Highest temperature in {station.name} on June 1, 2026?",
+            "markets": [
+                {
+                    "id": f"demo-m-{station.slug}-{spec['bucket_slug']}",
+                    "slug": f"demo-{station.slug}-{spec['bucket_slug']}",
+                    "question": str(spec["question"]),
+                    "outcomes": '["Yes", "No"]',
+                    "outcomePrices": '["0.44", "0.56"]',
+                    "clobTokenIds": json.dumps([yes_token, f"no-token-{station.slug}"]),
+                    "conditionId": f"demo-condition-{station.slug}",
+                    "volume": "500",
+                    "liquidity": "250",
+                    "active": True,
+                    "closed": False,
+                }
+            ],
+        }
+        parsed_markets.extend(
+            parse_gamma_event_markets(
+                gamma_event,
+                books_by_yes_token={yes_token: {"bids": [{"price": "0.43", "size": "100"}], "asks": [{"price": "0.44", "size": "80"}]}},
+                min_liquidity_usd=cfg.trading.min_liquidity_usd,
+            )
         )
-    ]
+        forecasts.append(
+            ForecastSnapshot(
+                city_slug=station.slug,
+                city_name=station.name,
+                station=station.station,
+                source="ecmwf",
+                forecast_date=event_date,
+                fetched_at=fetched_at,
+                high_temperature=float(spec["forecast_high"]),
+                unit=station.temperature_unit,
+                horizon_days=1.0,
+                metadata={"provider": "demo"},
+            )
+        )
 
     return run_paper_scan(
         run_id=f"paper-demo-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}",
@@ -124,6 +131,29 @@ def run_demo_paper_trade(
         kelly_fraction_cap=kelly_fraction_cap,
         realized_daily_pnl=0.0,
     )
+
+
+def _demo_event_specs() -> list[dict[str, Any]]:
+    return [
+        {
+            "city_slug": "nyc",
+            "bucket_slug": "68-76",
+            "question": "Will the highest temperature in New York City be between 68-76°F on June 1?",
+            "forecast_high": 72.0,
+        },
+        {
+            "city_slug": "chicago",
+            "bucket_slug": "70-78",
+            "question": "Will the highest temperature in Chicago be between 70-78°F on June 1?",
+            "forecast_high": 74.0,
+        },
+        {
+            "city_slug": "miami",
+            "bucket_slug": "84-92",
+            "question": "Will the highest temperature in Miami be between 84-92°F on June 1?",
+            "forecast_high": 88.0,
+        },
+    ]
 
 
 def format_scan_summary(result: PaperScanResult, *, ledger_path: Path) -> str:

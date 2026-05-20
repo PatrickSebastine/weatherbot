@@ -35,12 +35,48 @@ def test_paper_trade_demo_writes_secret_safe_ledger_and_prints_scan_summary(tmp_
     )
 
     assert "Weatherbot Paper Trading Run" in result.stdout
-    assert "Scanned: 1" in result.stdout
-    assert "Filled: 1" in result.stdout
+    assert "Scanned: 3" in result.stdout
+    assert "Filled: 3" in result.stdout
     assert ledger.exists()
     entries = [json.loads(line) for line in ledger.read_text(encoding="utf-8").splitlines()]
-    assert [entry["event_type"] for entry in entries] == ["decision", "paper_fill"]
+    assert [entry["event_type"] for entry in entries] == ["decision", "paper_fill"] * 3
+    decision_cities = [entry["payload"]["city"] for entry in entries if entry["event_type"] == "decision"]
+    assert set(decision_cities) == {"Nyc", "Chicago", "Miami"}
     assert all("token" not in json.dumps(entry).lower() for entry in entries)
+
+
+def test_paper_watchdog_alerts_when_ledger_is_stale_and_runner_missing(tmp_path):
+    ledger = tmp_path / "paper.jsonl"
+    ledger.write_text("{}\n", encoding="utf-8")
+
+    result = subprocess.run(
+        [
+            "bash",
+            "scripts/paper_watchdog.sh",
+            "--ledger",
+            str(ledger),
+            "--max-age-minutes",
+            "0",
+            "--process-pattern",
+            "definitely-not-running-weatherbot-test-process",
+            "--strict-exit",
+        ],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+    )
+
+    assert result.returncode == 1
+    assert "Weatherbot paper runner watchdog alert" in result.stdout
+    assert "ledger stale" in result.stdout
+    assert "runner process missing" in result.stdout
+
+
+def test_paper_watchdog_script_exists_is_executable_and_compiles():
+    script = ROOT / "scripts" / "paper_watchdog.sh"
+    assert script.exists()
+    assert script.stat().st_mode & stat.S_IXUSR
+    subprocess.run(["bash", "-n", str(script)], check=True)
 
 
 def test_paper_performance_cli_measures_fill_rates_edges_positions_and_pnl(tmp_path):
@@ -94,3 +130,5 @@ def test_paper_trading_runbook_documents_safe_setup_and_measurement_commands():
     assert "execution.enable_live" in content
     assert "false" in content.lower()
     assert "data/paper_trades.jsonl" in content
+    assert "logs/run_paper.log" in content
+    assert "paper_watchdog.sh" in content
