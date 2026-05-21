@@ -32,7 +32,29 @@ Expected output includes:
 - `Filled`
 - the path to `data/paper_trades.jsonl`
 
-The demo uses an in-memory NYC weather market and forecast, then appends a `decision` and `paper_fill` event to the ledger.
+The demo uses in-memory NYC, Chicago, and Miami weather markets and forecasts, then appends `decision` and `paper_fill` events to the ledger.
+
+## Durable continuous paper runner
+
+Start the loop in a persistent `tmux` session and write logs to disk:
+
+```bash
+mkdir -p logs
+tmux new-session -d -s weatherbot-paper 'cd /home/cptre/weatherbot-prod && WEATHERBOT_LOOP_SECONDS=900 scripts/run_paper.sh >> logs/run_paper.log 2>&1'
+```
+
+Inspect it with:
+
+```bash
+tmux list-sessions
+tail -n 80 logs/run_paper.log
+```
+
+Watchdog check:
+
+```bash
+scripts/paper_watchdog.sh --ledger data/paper_trades.jsonl --max-age-minutes 60
+```
 
 ## Measure paper performance
 
