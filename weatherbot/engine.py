@@ -204,6 +204,8 @@ class PaperTradingEngine:
                 payload={
                     "market_id": candidate.market_id,
                     "market_slug": candidate.market_slug,
+                    "city": candidate.city,
+                    "event_date": candidate.event_date,
                     "outcome": candidate.outcome,
                     "side": fill.order.side.value,
                     "status": fill.status.value,

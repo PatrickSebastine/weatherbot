@@ -1,127 +1,114 @@
-# 🌤 Weatherbot — Polymarket Weather Trading Bot
+# Weatherbot
 
-Automated weather market trading bot for Polymarket. Finds mispriced temperature outcomes using real forecast data from multiple sources across 20 cities worldwide.
+Weatherbot is a safety-first Polymarket weather-market research bot.
 
-No SDK. No black box. Pure Python.
+Current honest status: Demo runner uptime and ledger smoke test.
 
----
+That means the default durable runner is useful for checking process uptime, ledger writes, reporting, watchdogs, and safety gates. It is not proof of profitable weather trading.
 
-## Versions
+## Current operating modes
 
-### `bot_v1.py` — Base Bot
-The foundation. Scans 6 US cities, fetches forecasts from NWS using airport station coordinates, finds matching temperature buckets on Polymarket, and enters trades when the market price is below the entry threshold.
+### Demo paper smoke test
 
-No math, no complexity. Just the core logic — good for understanding how the system works.
+The existing low-resource loop uses:
 
-### `weatherbot.py` — Full Bot (current)
-Everything in v1, plus:
-- **20 cities** across 4 continents (US, Europe, Asia, South America, Oceania)
-- **3 forecast sources** — ECMWF (global), HRRR/GFS (US, hourly), METAR (real-time observations)
-- **Expected Value** — skips trades where the math doesn't work
-- **Kelly Criterion** — sizes positions based on edge strength
-- **Stop-loss + trailing stop** — 20% stop, moves to breakeven at +20%
-- **Slippage filter** — skips markets with spread > $0.03
-- **Self-calibration** — learns forecast accuracy per city over time
-- **Full data storage** — every forecast snapshot, trade, and resolution saved to JSON
+```bash
+scripts/run_paper.sh
+```
 
----
+That wrapper currently calls `scripts/paper_trade.py --demo`. Demo mode uses deterministic synthetic markets and forecasts. Treat its reports as uptime/ledger smoke-test evidence only.
 
-## How It Works
+### Real-data dry-run paper scanner
 
-Polymarket runs markets like "Will the highest temperature in Chicago be between 46–47°F on March 7?" These markets are often mispriced — the forecast says 78% likely but the market is trading at 8 cents.
+A read-only real-data scanner is now available:
 
-The bot:
-1. Fetches forecasts from ECMWF and HRRR via Open-Meteo (free, no key required)
-2. Gets real-time observations from METAR airport stations
-3. Finds the matching temperature bucket on Polymarket
-4. Calculates Expected Value — only enters if the math is positive
-5. Sizes the position using fractional Kelly Criterion
-6. Monitors stops every 10 minutes, full scan every hour
-7. Auto-resolves markets by querying Polymarket API directly
+```bash
+python scripts/paper_trade.py --real-data --config config/default.paper.json --ledger data/paper_trades.jsonl --bankroll 10 --no-telegram
+```
 
----
+It fetches real external inputs but still does dry-run paper trading only:
 
-## Why Airport Coordinates Matter
+- Polymarket Gamma weather event fetcher
+- Polymarket CLOB order book fetcher
+- Open-Meteo forecast fetcher
+- Market-to-station matching
+- Stale/missing forecast filtering by city and event date
+- Ledger output for decisions, fills, portfolio snapshots, and PnL events when resolutions are supplied by helper functions
 
-Most bots use city center coordinates. That's wrong.
+Live mode is not wired. Do not treat this repo as live-trading ready.
 
-Every Polymarket weather market resolves on a specific airport station. NYC resolves on LaGuardia (KLGA), Dallas on Love Field (KDAL) — not DFW. The difference between city center and airport can be 3–8°F. On markets with 1–2°F buckets, that's the difference between the right trade and a guaranteed loss.
+## What must be proven before live trading
 
-| City | Station | Airport |
-|------|---------|---------|
-| NYC | KLGA | LaGuardia |
-| Chicago | KORD | O'Hare |
-| Miami | KMIA | Miami Intl |
-| Dallas | KDAL | Love Field |
-| Seattle | KSEA | Sea-Tac |
-| Atlanta | KATL | Hartsfield |
-| London | EGLC | London City |
-| Tokyo | RJTT | Haneda |
-| ... | ... | ... |
+Do not consider live capital until real-data paper mode has at least:
 
----
+- 100+ real paper decisions
+- Real market prices
+- Real weather forecasts
+- Resolved outcomes
+- Actual win rate
+- Actual realized PnL
+- Max drawdown
+- Average edge versus actual outcome
+- No duplicate overexposure
+- Watchdog and reporting stability
+
+## Repository layout
+
+- `weatherbot/config.py` - config loading and safety validation
+- `weatherbot/data/live.py` - read-only Gamma, CLOB, and Open-Meteo fetchers
+- `weatherbot/data/polymarket.py` - Gamma/CLOB payload parsing
+- `weatherbot/data/weather.py` - Open-Meteo normalization and forecast snapshots
+- `weatherbot/scan.py` - market-to-forecast matching and paper scan orchestration
+- `weatherbot/engine.py` - paper decision, EV, sizing, risk, and fill logging
+- `weatherbot/portfolio.py` - rebuilds cash, positions, exposure, duplicate exposure, and PnL from the ledger
+- `weatherbot/ledger.py` - append-only secret-safe JSONL ledger
+- `scripts/paper_trade.py` - demo or real-data dry-run entrypoint
+- `scripts/run_paper.sh` - current durable low-resource demo runner
+- `scripts/paper_performance.py` - ledger summary
+- `scripts/performance_report.py` - daily/weekly/monthly reports
+
+## Legacy files
+
+These files are retained for reference only and should not be treated as the current production path:
+
+- `bot_v1.py` - legacy base bot
+- `bot_v2.py` - legacy fuller bot prototype
+- `config.json` - legacy config shape, not the current validated paper config
+
+The current validated config is:
+
+```bash
+config/default.paper.json
+```
 
 ## Installation
+
 ```bash
-git clone https://github.com/alteregoeth-ai/weatherbot
+git clone https://github.com/PatrickSebastine/weatherbot
 cd weatherbot
-pip install requests
+python3 -m pip install -r requirements.txt
 ```
 
-Create `config.json` in the project folder:
-```json
-{
-  "balance": 10000.0,
-  "max_bet": 20.0,
-  "min_ev": 0.05,
-  "max_price": 0.45,
-  "min_volume": 2000,
-  "min_hours": 2.0,
-  "max_hours": 72.0,
-  "kelly_fraction": 0.25,
-  "max_slippage": 0.03,
-  "scan_interval": 3600,
-  "calibration_min": 30,
-  "vc_key": "YOUR_VISUAL_CROSSING_KEY"
-}
-```
+On minimal Ubuntu/WSL systems without pip, install pytest from apt for local tests:
 
-Get a free Visual Crossing API key at visualcrossing.com — used to fetch actual temperatures after market resolution.
-
----
-
-## Usage
 ```bash
-python weatherbot.py           # start the bot — scans every hour
-python weatherbot.py status    # balance and open positions
-python weatherbot.py report    # full breakdown of all resolved markets
+sudo apt-get install -y python3-pytest
 ```
 
----
+## Tests
 
-## Data Storage
+```bash
+pytest -q
+```
 
-All data is saved to `data/markets/` — one JSON file per market. Each file contains:
-- Hourly forecast snapshots (ECMWF, HRRR, METAR)
-- Market price history
-- Position details (entry, stop, PnL)
-- Final resolution outcome
+## Safety policy
 
-This data is used for self-calibration — the bot learns forecast accuracy per city over time and adjusts position sizing accordingly.
-
----
-
-## APIs Used
-
-| API | Auth | Purpose |
-|-----|------|---------|
-| Open-Meteo | None | ECMWF + HRRR forecasts |
-| Aviation Weather (METAR) | None | Real-time station observations |
-| Polymarket Gamma | None | Market data |
-| Visual Crossing | Free key | Historical temps for resolution |
-
----
+- Paper mode only by default
+- `execution.enable_live=false` required for paper runner
+- CLOB helpers are read-only unless an external live client is deliberately injected elsewhere
+- Ledger rejects secret-like payload fields
+- Reports are only as truthful as the event source: demo data is smoke-test data, real-data paper mode is required for strategy assessment
 
 ## Disclaimer
 
-This is not financial advice. Prediction markets carry real risk. Run the simulation thoroughly before committing real capital.
+This is not financial advice. Prediction markets carry real risk. Current repo status is pre-live research infrastructure, not a proven profitable trading system.
