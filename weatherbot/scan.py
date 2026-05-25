@@ -121,13 +121,19 @@ def _station_for_market(market: ParsedPolymarketMarket) -> CityStation:
     return get_city_station(_city_slug_from_market_city(market.city))
 
 
-def _city_slug_from_market_city(city: str) -> str:
+def city_slug_from_market_city(city: str) -> str:
+    """Normalize Polymarket city labels to supported station slugs."""
+
     normalized = city.strip().lower().replace(" ", "-")
     aliases = {
         "new-york-city": "nyc",
         "new-york": "nyc",
     }
     return aliases.get(normalized, normalized)
+
+
+def _city_slug_from_market_city(city: str) -> str:
+    return city_slug_from_market_city(city)
 
 
 def _calibration_key(station: CityStation, forecast: ForecastSnapshot) -> CalibrationKey:

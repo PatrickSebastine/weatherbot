@@ -16,12 +16,13 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
 from weatherbot.config import WeatherbotConfig, load_config
+from weatherbot.data.live import fetch_real_paper_inputs
 from weatherbot.data.polymarket import parse_gamma_event_markets
 from weatherbot.data.stations import get_city_station
 from weatherbot.data.weather import ForecastSnapshot
 from weatherbot.execution.orders import PaperBroker
 from weatherbot.ledger import ImmutableLedger
-from weatherbot.risk.exposure import ExposureBook
+from weatherbot.portfolio import rebuild_portfolio_from_ledger, record_unresolved_position_snapshot
 from weatherbot.risk.kill_switch import KillSwitch
 from weatherbot.risk.limits import RiskLimits
 from weatherbot.scan import PaperScanResult, run_paper_scan
@@ -30,30 +31,43 @@ from weatherbot.strategy.calibration import CalibrationStore
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--demo", action="store_true", help="run a deterministic one-market demo paper trade")
+    parser.add_argument("--demo", action="store_true", help="run a deterministic demo paper trade smoke test")
+    parser.add_argument("--real-data", action="store_true", help="fetch real Gamma/CLOB/Open-Meteo data for dry-run paper scanning")
     parser.add_argument("--config", default="config/default.paper.json", help="paper config JSON path")
     parser.add_argument("--ledger", default="data/paper_trades.jsonl", help="append-only paper ledger path")
     parser.add_argument("--bankroll", type=float, default=10.0, help="paper bankroll/cash balance")
     parser.add_argument("--kelly-fraction-cap", type=float, default=0.25)
     parser.add_argument("--kill-switch", default="KILL_SWITCH", help="path to operator kill-switch file")
+    parser.add_argument("--gamma-limit", type=int, default=100, help="maximum Gamma events to inspect in real-data mode")
     parser.add_argument("--no-telegram", action="store_true", help="reserved; this runner prints locally only")
     args = parser.parse_args(argv)
 
-    if not args.demo:
-        parser.error("only --demo is currently wired; live market fetch is intentionally not enabled here")
+    if args.demo == args.real_data:
+        parser.error("choose exactly one mode: --demo smoke test or --real-data dry-run scanner")
 
     cfg = load_config(args.config)
     if cfg.mode != "paper" or cfg.execution.enable_live:
         parser.error("paper runner requires mode='paper' and execution.enable_live=false")
 
-    result = run_demo_paper_trade(
-        cfg=cfg,
-        config_path=Path(args.config),
-        ledger_path=Path(args.ledger),
-        bankroll=args.bankroll,
-        kelly_fraction_cap=args.kelly_fraction_cap,
-        kill_switch_path=Path(args.kill_switch),
-    )
+    if args.demo:
+        result = run_demo_paper_trade(
+            cfg=cfg,
+            config_path=Path(args.config),
+            ledger_path=Path(args.ledger),
+            bankroll=args.bankroll,
+            kelly_fraction_cap=args.kelly_fraction_cap,
+            kill_switch_path=Path(args.kill_switch),
+        )
+    else:
+        result = run_real_data_paper_trade(
+            cfg=cfg,
+            config_path=Path(args.config),
+            ledger_path=Path(args.ledger),
+            bankroll=args.bankroll,
+            kelly_fraction_cap=args.kelly_fraction_cap,
+            kill_switch_path=Path(args.kill_switch),
+            gamma_limit=args.gamma_limit,
+        )
     print(format_scan_summary(result, ledger_path=Path(args.ledger)))
     return 0
 
@@ -116,21 +130,82 @@ def run_demo_paper_trade(
             )
         )
 
-    return run_paper_scan(
+    return _run_scan_with_rebuilt_portfolio(
         run_id=f"paper-demo-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}",
-        config_hash=_file_sha256(config_path),
+        cfg=cfg,
+        config_path=config_path,
+        ledger_path=ledger_path,
+        parsed_markets=parsed_markets,
+        forecasts=forecasts,
+        bankroll=bankroll,
+        kelly_fraction_cap=kelly_fraction_cap,
+        kill_switch_path=kill_switch_path,
+    )
+
+
+def run_real_data_paper_trade(
+    *,
+    cfg: WeatherbotConfig,
+    config_path: Path,
+    ledger_path: Path,
+    bankroll: float,
+    kelly_fraction_cap: float,
+    kill_switch_path: Path,
+    gamma_limit: int,
+) -> PaperScanResult:
+    """Run a dry-run paper scan using real Gamma, CLOB, and Open-Meteo inputs."""
+
+    parsed_markets, forecasts = fetch_real_paper_inputs(
+        min_liquidity_usd=cfg.trading.min_liquidity_usd,
+        gamma_limit=gamma_limit,
+    )
+    return _run_scan_with_rebuilt_portfolio(
+        run_id=f"paper-real-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}",
+        cfg=cfg,
+        config_path=config_path,
+        ledger_path=ledger_path,
+        parsed_markets=parsed_markets,
+        forecasts=forecasts,
+        bankroll=bankroll,
+        kelly_fraction_cap=kelly_fraction_cap,
+        kill_switch_path=kill_switch_path,
+    )
+
+
+def _run_scan_with_rebuilt_portfolio(
+    *,
+    run_id: str,
+    cfg: WeatherbotConfig,
+    config_path: Path,
+    ledger_path: Path,
+    parsed_markets: list,
+    forecasts: list,
+    bankroll: float,
+    kelly_fraction_cap: float,
+    kill_switch_path: Path,
+) -> PaperScanResult:
+    config_hash = _file_sha256(config_path)
+    today = datetime.now(timezone.utc).date().isoformat()
+    state = rebuild_portfolio_from_ledger(ledger_path, starting_cash=bankroll, today=today)
+    ledger = ImmutableLedger(ledger_path)
+    result = run_paper_scan(
+        run_id=run_id,
+        config_hash=config_hash,
         parsed_markets=parsed_markets,
         forecasts=forecasts,
         calibration_store=CalibrationStore(),
-        broker=PaperBroker(starting_cash=bankroll),
-        ledger=ImmutableLedger(ledger_path),
+        broker=PaperBroker(starting_cash=state.cash),
+        ledger=ledger,
         risk_limits=_risk_limits_from_config(cfg),
-        exposure_book=ExposureBook(),
+        exposure_book=state.exposure_book,
         kill_switch=KillSwitch(kill_switch_path),
-        bankroll=bankroll,
+        bankroll=max(state.cash, 0.0),
         kelly_fraction_cap=kelly_fraction_cap,
-        realized_daily_pnl=0.0,
+        realized_daily_pnl=state.realized_daily_pnl,
     )
+    refreshed = rebuild_portfolio_from_ledger(ledger_path, starting_cash=bankroll, today=today)
+    record_unresolved_position_snapshot(ledger, refreshed, run_id=run_id, config_hash=config_hash)
+    return result
 
 
 def _demo_event_specs() -> list[dict[str, Any]]:
