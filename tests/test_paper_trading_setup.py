@@ -39,7 +39,8 @@ def test_paper_trade_demo_writes_secret_safe_ledger_and_prints_scan_summary(tmp_
     assert "Filled: 3" in result.stdout
     assert ledger.exists()
     entries = [json.loads(line) for line in ledger.read_text(encoding="utf-8").splitlines()]
-    assert [entry["event_type"] for entry in entries] == ["decision", "paper_fill"] * 3
+    assert [entry["event_type"] for entry in entries] == ["decision", "paper_fill"] * 3 + ["unresolved_position_snapshot"]
+    assert entries[-1]["payload"]["open_position_count"] == 3
     decision_cities = [entry["payload"]["city"] for entry in entries if entry["event_type"] == "decision"]
     assert set(decision_cities) == {"Nyc", "Chicago", "Miami"}
     assert all("token" not in json.dumps(entry).lower() for entry in entries)
