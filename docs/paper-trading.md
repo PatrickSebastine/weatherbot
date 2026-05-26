@@ -34,9 +34,9 @@ Expected output includes:
 
 The demo uses in-memory NYC, Chicago, and Miami weather markets and forecasts, then appends `decision` and `paper_fill` events to the ledger.
 
-## Durable continuous paper runner
+## Durable real-data paper runner
 
-Start the loop in a persistent `tmux` session and write logs to disk:
+The durable runner defaults to `--real-data` and writes to a fresh `data/paper_trades.jsonl` ledger. Start the loop in a persistent `tmux` session and write logs to disk:
 
 ```bash
 mkdir -p logs
@@ -54,6 +54,14 @@ Watchdog check:
 
 ```bash
 scripts/paper_watchdog.sh --ledger data/paper_trades.jsonl --max-age-minutes 60
+```
+
+## One-shot scheduled real-data run
+
+For cron/scheduler use, run exactly one cycle:
+
+```bash
+scripts/weatherbot_real_paper_once.sh >> logs/run_paper.log 2>&1
 ```
 
 ## Measure paper performance

@@ -20,7 +20,8 @@ export WEATHERBOT_BANKROLL="${WEATHERBOT_BANKROLL:-10}"
 export WEATHERBOT_LOOP_SECONDS="${WEATHERBOT_LOOP_SECONDS:-900}"
 export WEATHERBOT_ONCE="${WEATHERBOT_ONCE:-false}"
 export WEATHERBOT_LOCK_FILE="${WEATHERBOT_LOCK_FILE:-/tmp/weatherbot-paper.lock}"
-export WEATHERBOT_COMMAND="${WEATHERBOT_COMMAND:-python scripts/paper_trade.py --demo --config '$WEATHERBOT_CONFIG' --ledger '$WEATHERBOT_LEDGER' --bankroll '$WEATHERBOT_BANKROLL' --no-telegram}"
+export WEATHERBOT_GAMMA_LIMIT="${WEATHERBOT_GAMMA_LIMIT:-100}"
+export WEATHERBOT_COMMAND="${WEATHERBOT_COMMAND:-python scripts/paper_trade.py --real-data --gamma-limit '$WEATHERBOT_GAMMA_LIMIT' --config '$WEATHERBOT_CONFIG' --ledger '$WEATHERBOT_LEDGER' --bankroll '$WEATHERBOT_BANKROLL' --no-telegram}"
 
 export OPENBLAS_NUM_THREADS=1
 export OMP_NUM_THREADS=1

@@ -38,6 +38,7 @@ pip-delete-this-directory.txt
 
 # Local bot state / paper ledgers
 /data/*.jsonl
+/data/archive/*.jsonl
 !/reports/
 
 # Unit test / coverage reports

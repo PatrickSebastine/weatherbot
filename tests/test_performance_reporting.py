@@ -68,12 +68,62 @@ def test_daily_report_uses_previous_utc_day_window_and_standard_template(tmp_pat
     content = report_path.read_text(encoding="utf-8")
     assert "# Weatherbot Daily Performance Report — 2026-05-17" in content
     assert "Period: 2026-05-17 00:00 UTC to 2026-05-17 23:59 UTC" in content
+    assert "Reported at: 2026-05-18 00:05 UTC" in content
     assert "Decisions: 1" in content
     assert "Approved: 1" in content
     assert "Fills: 1" in content
     assert "Realized PnL: $0.25" in content
     assert "Open positions: 1" in content
     assert "Miami" not in content
+
+
+def test_daily_report_includes_runtime_errors_from_log_within_utc_window(tmp_path):
+    ledger = tmp_path / "paper.jsonl"
+    output_dir = tmp_path / "reports"
+    log = tmp_path / "run_paper.log"
+    ledger.write_text("", encoding="utf-8")
+    log.write_text(
+        "\n".join(
+            [
+                "[2026-05-25T22:06:36+02:00] weatherbot low-resource paper run starting",
+                "Traceback (most recent call last):",
+                "  File \"/repo/scripts/paper_trade.py\", line 1, in <module>",
+                "ValueError: starting_cash must be positive or zero",
+                "[2026-05-26T02:10:00+02:00] weatherbot low-resource paper run starting",
+                "Traceback (most recent call last):",
+                "RuntimeError: outside previous UTC day",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    subprocess.run(
+        [
+            "python",
+            "scripts/performance_report.py",
+            "--period",
+            "daily",
+            "--as-of",
+            "2026-05-26T00:05:00+00:00",
+            "--ledger",
+            str(ledger),
+            "--log",
+            str(log),
+            "--output-dir",
+            str(output_dir),
+        ],
+        cwd=ROOT,
+        check=True,
+        text=True,
+        capture_output=True,
+    )
+
+    content = (output_dir / "daily" / "2026-05-25.md").read_text(encoding="utf-8")
+    assert "Period: 2026-05-25 00:00 UTC to 2026-05-25 23:59 UTC" in content
+    assert "Reported at: 2026-05-26 00:05 UTC" in content
+    assert "Runtime/log errors: 1" in content
+    assert "ValueError: starting_cash must be positive or zero" in content
+    assert "outside previous UTC day" not in content
 
 
 def test_weekly_and_monthly_templates_write_to_predictable_paths(tmp_path):
@@ -114,6 +164,7 @@ def test_low_resource_daily_push_script_has_guards_and_expected_schedule_command
     assert "ionice -c2 -n7" in content
     assert "OPENBLAS_NUM_THREADS=1" in content
     assert "performance_report.py --period daily" in content
+    assert "--log \"$RUN_LOG\"" in content
     assert "git push \"$REMOTE\" HEAD:\"$BRANCH\"" in content
     assert "WEATHERBOT_GIT_REMOTE:-origin" in content
     assert "git checkout \"$BRANCH\"" in content

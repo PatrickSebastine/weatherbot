@@ -15,6 +15,7 @@ export PYTHONUNBUFFERED=1
 ROOT_DIR="${WEATHERBOT_ROOT:-/home/cptre/weatherbot-prod}"
 LEDGER="${WEATHERBOT_LEDGER:-data/paper_trades.jsonl}"
 OUTPUT_DIR="${WEATHERBOT_REPORT_DIR:-reports/performance}"
+RUN_LOG="${WEATHERBOT_RUN_LOG:-logs/run_paper.log}"
 REMOTE="${WEATHERBOT_GIT_REMOTE:-origin}"
 BRANCH="${WEATHERBOT_GIT_BRANCH:-prod-safety-refactor}"
 LOCK_FILE="${WEATHERBOT_LOCK_FILE:-/tmp/weatherbot-daily-report.lock}"
@@ -38,6 +39,7 @@ git merge --ff-only "$REMOTE/$BRANCH"
 report_path=$(nice -n 10 ionice -c2 -n7 python scripts/performance_report.py \
   --period daily \
   --ledger "$LEDGER" \
+  --log "$RUN_LOG" \
   --output-dir "$OUTPUT_DIR")
 
 echo "Generated $report_path"

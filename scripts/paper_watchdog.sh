@@ -5,7 +5,8 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LEDGER="$ROOT_DIR/data/paper_trades.jsonl"
 MAX_AGE_MINUTES=60
 PROCESS_PATTERN="scripts/run_paper.sh|scripts/paper_trade.py"
-STRICT_EXIT=false
+REQUIRE_PROCESS="${WEATHERBOT_REQUIRE_PROCESS:-false}"
+STRICT_EXIT="${WEATHERBOT_WATCHDOG_STRICT:-true}"
 VERBOSE=false
 
 while [[ $# -gt 0 ]]; do
@@ -20,7 +21,12 @@ while [[ $# -gt 0 ]]; do
       ;;
     --process-pattern)
       PROCESS_PATTERN="$2"
+      REQUIRE_PROCESS=true
       shift 2
+      ;;
+    --require-process)
+      REQUIRE_PROCESS=true
+      shift
       ;;
     --strict-exit)
       STRICT_EXIT=true
@@ -52,18 +58,20 @@ else
   fi
 fi
 
-runner_found=false
-while read -r pid cmd; do
-  [[ -z "${pid:-}" ]] && continue
-  if [[ "$pid" == "$$" || "$cmd" == *"paper_watchdog.sh"* ]]; then
-    continue
-  fi
-  runner_found=true
-  break
-done < <(pgrep -af "$PROCESS_PATTERN" || true)
+if [[ "$REQUIRE_PROCESS" == "true" ]]; then
+  runner_found=false
+  while read -r pid cmd; do
+    [[ -z "${pid:-}" ]] && continue
+    if [[ "$pid" == "$$" || "$cmd" == *"paper_watchdog.sh"* ]]; then
+      continue
+    fi
+    runner_found=true
+    break
+  done < <(pgrep -af "$PROCESS_PATTERN" || true)
 
-if [[ "$runner_found" != "true" ]]; then
-  issues+=("runner process missing: pattern $PROCESS_PATTERN")
+  if [[ "$runner_found" != "true" ]]; then
+    issues+=("runner process missing: pattern $PROCESS_PATTERN")
+  fi
 fi
 
 if (( ${#issues[@]} > 0 )); then

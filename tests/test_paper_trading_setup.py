@@ -60,7 +60,6 @@ def test_paper_watchdog_alerts_when_ledger_is_stale_and_runner_missing(tmp_path)
             "0",
             "--process-pattern",
             "definitely-not-running-weatherbot-test-process",
-            "--strict-exit",
         ],
         cwd=ROOT,
         text=True,
@@ -71,6 +70,19 @@ def test_paper_watchdog_alerts_when_ledger_is_stale_and_runner_missing(tmp_path)
     assert "Weatherbot paper runner watchdog alert" in result.stdout
     assert "ledger stale" in result.stdout
     assert "runner process missing" in result.stdout
+
+
+def test_run_paper_defaults_to_real_data_with_fresh_ledger_and_once_wrapper():
+    run_script = (ROOT / "scripts" / "run_paper.sh").read_text(encoding="utf-8")
+    wrapper = ROOT / "scripts" / "weatherbot_real_paper_once.sh"
+    wrapper_content = wrapper.read_text(encoding="utf-8")
+
+    assert "--real-data" in run_script
+    assert "--demo" not in run_script.split("WEATHERBOT_COMMAND", 1)[1]
+    assert "WEATHERBOT_ONCE=true" in wrapper_content
+    assert "scripts/run_paper.sh" in wrapper_content
+    assert wrapper.stat().st_mode & stat.S_IXUSR
+    subprocess.run(["bash", "-n", str(wrapper)], check=True)
 
 
 def test_paper_watchdog_script_exists_is_executable_and_compiles():
@@ -127,6 +139,7 @@ def test_paper_trading_runbook_documents_safe_setup_and_measurement_commands():
 
     assert "paper" in content.lower()
     assert "scripts/paper_trade.py --demo" in content
+    assert "scripts/weatherbot_real_paper_once.sh" in content
     assert "scripts/paper_performance.py" in content
     assert "execution.enable_live" in content
     assert "false" in content.lower()
