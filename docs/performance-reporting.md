@@ -6,7 +6,7 @@ Weatherbot uses standard Markdown reports for **Daily**, **Weekly**, and **Month
 
 - Daily report schedule: **00:05 UTC** every day.
 - Daily report window: previous day from **00:00 UTC to 23:59 UTC**.
-- Example: the 17 May 2026 daily report is generated and pushed at 00:05 UTC on 18 May 2026.
+- Example: the 25 May 2026 daily report covers 00:00 UTC to 23:59 UTC on 25 May 2026 and is generated/pushed at 00:05 UTC on 26 May 2026.
 - Cron expression: `5 0 * * * /home/cptre/weatherbot-prod/scripts/daily_report_push.sh`.
 
 The push target is Patrick's standalone GitHub repo:
@@ -32,7 +32,7 @@ The scheduled push script runs with a low resource profile:
 Generate the previous daily report manually:
 
 ```bash
-python scripts/performance_report.py --period daily --ledger data/paper_trades.jsonl --output-dir reports/performance
+python scripts/performance_report.py --period daily --ledger data/paper_trades.jsonl --log logs/run_paper.log --output-dir reports/performance
 ```
 
 Generate weekly and monthly reports manually:
@@ -60,7 +60,8 @@ Each Daily, Weekly, and Monthly report uses the same sections so performance is 
    - rejected
    - fills
    - order rejections
-   - errors
+   - ledger errors
+   - runtime/log errors
 4. Performance Metrics
    - approval rate
    - fill rate
@@ -69,7 +70,8 @@ Each Daily, Weekly, and Monthly report uses the same sections so performance is 
    - realized PnL
    - open positions
 5. Exposure by City
-6. Review Notes
+6. Runtime Error Summary, when runner tracebacks occurred in the UTC window
+7. Review Notes
 
 ## Review cadence
 

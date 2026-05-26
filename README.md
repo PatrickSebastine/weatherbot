@@ -2,25 +2,25 @@
 
 Weatherbot is a safety-first Polymarket weather-market research bot.
 
-Current honest status: Demo runner uptime and ledger smoke test.
+Current honest status: real-data paper scanner collection mode.
 
-That means the default durable runner is useful for checking process uptime, ledger writes, reporting, watchdogs, and safety gates. It is not proof of profitable weather trading.
+That means the default durable runner now fetches real read-only Polymarket/Open-Meteo inputs and writes paper-only decisions to a fresh ledger. It is still not proof of profitable weather trading until enough markets resolve.
 
 ## Current operating modes
 
-### Demo paper smoke test
+### Real-data paper runner
 
-The existing low-resource loop uses:
+The low-resource scheduled/loop runner uses:
 
 ```bash
 scripts/run_paper.sh
 ```
 
-That wrapper currently calls `scripts/paper_trade.py --demo`. Demo mode uses deterministic synthetic markets and forecasts. Treat its reports as uptime/ledger smoke-test evidence only.
+That wrapper currently calls `scripts/paper_trade.py --real-data`. It is still dry-run paper trading only, with no live orders or spending.
 
-### Real-data dry-run paper scanner
+### Manual real-data dry-run scanner
 
-A read-only real-data scanner is now available:
+Run one manual real-data scan with:
 
 ```bash
 python scripts/paper_trade.py --real-data --config config/default.paper.json --ledger data/paper_trades.jsonl --bankroll 10 --no-telegram
@@ -63,7 +63,7 @@ Do not consider live capital until real-data paper mode has at least:
 - `weatherbot/portfolio.py` - rebuilds cash, positions, exposure, duplicate exposure, and PnL from the ledger
 - `weatherbot/ledger.py` - append-only secret-safe JSONL ledger
 - `scripts/paper_trade.py` - demo or real-data dry-run entrypoint
-- `scripts/run_paper.sh` - current durable low-resource demo runner
+- `scripts/run_paper.sh` - current durable low-resource real-data paper runner
 - `scripts/paper_performance.py` - ledger summary
 - `scripts/performance_report.py` - daily/weekly/monthly reports
 
