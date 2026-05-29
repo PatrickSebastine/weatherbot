@@ -1,5 +1,11 @@
 # Weatherbot Performance Reporting
 
+## Project pause notice
+
+Weatherbot performance reporting is paused as of 2026-05-29. The scheduled daily report push cron job has been paused and should not be resumed unless Patrick explicitly reopens the project.
+
+The previous reporting instructions below are retained for historical reference only.
+
 Weatherbot uses standard Markdown reports for **Daily**, **Weekly**, and **Monthly** paper-trading reviews. The reports are generated from the append-only paper ledger and committed to GitHub for easy review over time.
 
 ## Schedule and UTC policy

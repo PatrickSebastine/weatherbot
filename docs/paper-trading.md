@@ -1,5 +1,11 @@
 # Weatherbot Paper Trading Setup
 
+## Project pause notice
+
+Weatherbot paper trading is paused as of 2026-05-29. Do not start the tmux loop, one-shot runner, watchdog, or Telegram reporting unless Patrick explicitly reopens the project.
+
+The previous instructions below are retained for historical reference only.
+
 This runbook keeps execution in **paper** mode only. It writes simulated decisions and fills to `data/paper_trades.jsonl` so we can test the full risk/strategy/order path and measure performance before any live trading.
 
 ## Safety settings

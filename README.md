@@ -1,8 +1,18 @@
 # Weatherbot
 
+## Project status: PAUSED / DISABLED
+
+Weatherbot is paused as of 2026-05-29.
+
+This project is currently considered a failed or non-viable use of further troubleshooting credits/tokens. All Hermes cron jobs tied to `/home/cptre/weatherbot-prod` have been paused, and the repository is preserved only as a frozen research artifact unless Patrick explicitly reopens it.
+
+Do not restart scheduled runs, paper loops, watchdogs, or report pushes without a fresh restart decision and a strict budget/stop-condition plan.
+
+See `PAUSED.md` for the pause record and stopped job list.
+
 Weatherbot is a safety-first Polymarket weather-market research bot.
 
-Current honest status: real-data paper scanner collection mode.
+Current honest status: paused. Previous status was real-data paper scanner collection mode.
 
 That means the default durable runner now fetches real read-only Polymarket/Open-Meteo inputs and writes paper-only decisions to a fresh ledger. It is still not proof of profitable weather trading until enough markets resolve.
 
